@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from models import BaseModel, AdvancedModel
+from ab_test import log_ab_test, random_model
 
 app = Flask(__name__)
 
@@ -8,17 +8,30 @@ app = Flask(__name__)
 def detect_anomaly():
     try:
         data = request.get_json()
-        model_type = data.get("model", "base")
+
+        # Validation
+        required_fields = ["listing_id", "date", "price"]
+        for field in required_fields:
+            if field not in data:
+                return (
+                    jsonify({"error": f"Missing required field: {field}"}),
+                    400
+                )
+
         listing_id = data["listing_id"]
         date = data["date"]
         price = data["price"]
 
-        if model_type == "advanced":
-            model = AdvancedModel()
-        else:
-            model = BaseModel()
+        model_type, model = random_model()
 
         result = model.detect_anomaly(listing_id, date, price)
+        log_ab_test(
+            listing_id=listing_id,
+            input_data={"price": price, "date": date},
+            model_used=model_type,
+            prediction=result
+        )
+
         return jsonify({"anomaly": result})
 
     except Exception as e:
