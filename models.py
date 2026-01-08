@@ -4,13 +4,26 @@ from hdbscan import HDBSCAN
 from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.seasonal import seasonal_decompose
 from typing import Optional, Tuple
+from sklearn.model_selection import train_test_split
+
+
+def metrics(y_true: pd.Series, y_pred: pd.Series) -> Tuple[float, float]:
+    tp = ((y_true == 1) & (y_pred == 1)).sum()
+    fp = ((y_true == 0) & (y_pred == 1)).sum()
+    fn = ((y_true == 1) & (y_pred == 0)).sum()
+    tn = ((y_true == 0) & (y_pred == 0)).sum()
+
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    fpr = fp / (fp + tn) if (fp + tn) else 0.0
+
+    return recall, fpr
 
 
 class Model:
     def __init__(self, listings_path: str = "./data/listings.csv",
-                 calendar_path: str = "./data/calendar.csv"):
-        self.listings, self.calendar = self.load_and_prepare_data(
-            listings_path, calendar_path)
+                 sessions_path: str = "./data/sessions.csv"):
+        self.listings, self.sessions = self.load_and_prepare_data(
+            listings_path, sessions_path)
 
     # przygotowanie danych
     def clean_price(self, price: float | str) -> float:
@@ -18,23 +31,26 @@ class Model:
             return float(price.replace("$", "").replace(",", ""))
         return float(price)
 
-    def load_and_prepare_data(self, listings_path: str, calendar_path: str
+    def load_and_prepare_data(self, listings_path: str, sessions_path: str
                               ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         # wczytanie danych
         listings = pd.read_csv(listings_path)
-        calendar = pd.read_csv(calendar_path)
+        sessions = pd.read_csv(sessions_path)
+
+        # zachowujemy tylko wiersze z niepustą ceną (inne akcje niz book listing)
+        sessions = sessions.dropna(subset=["price"])
 
         # przygotowanie danych
-        calendar["date"] = pd.to_datetime(calendar["date"])
-        calendar["price"] = calendar["price"].apply(self.clean_price)
+        sessions["date"] = pd.to_datetime(sessions["timestamp"]).dt.date
+        sessions["price"] = sessions["price"].apply(self.clean_price)
         listings["price"] = listings["price"].apply(self.clean_price)
-        return listings, calendar
+        return listings, sessions
 
 
 class BaseModel(Model):
     def __init__(self):
         super().__init__()
-        self.data = self.calendar.merge(
+        self.data = self.sessions.merge(
             self.listings[["id", "property_type"]],
             left_on="listing_id",
             right_on="id",
@@ -78,7 +94,7 @@ class BaseModel(Model):
                        price: float, history_threshold: float = 0.4,
                        property_threshold: float = 0.3) -> int:
 
-        # dołączenie kolumny property_type do tabeli calendar
+        # dołączenie kolumny property_type do tabeli sessions
         row = self.data[
             (self.data["listing_id"] == listing_id) &
             (self.data["date"] == date)
@@ -119,8 +135,8 @@ class BaseModel(Model):
 class AdvancedModel(Model):
     def __init__(self):
         super().__init__()
-        # łączenie tabel calendar i listings
-        self.data = self.calendar.merge(
+        # łączenie tabel sessions i listings
+        self.data = self.sessions.merge(
             self.listings[['id', 'property_type', 'room_type', 'accommodates',
                            'bathrooms', 'bedrooms', 'beds']],
             left_on='listing_id',
