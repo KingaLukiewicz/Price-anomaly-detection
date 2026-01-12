@@ -8,26 +8,21 @@ app = Flask(__name__)
 def detect_anomaly():
     try:
         data = request.get_json()
-
         # Validation
-        required_fields = ["listing_id", "date", "price"]
+        required_fields = [
+            "neighbourhood_cleansed", "property_type", "room_type",
+            "accommodates", "bathrooms", "bedrooms", "beds", "price"
+        ]
         for field in required_fields:
             if field not in data:
                 return (
                     jsonify({"error": f"Missing required field: {field}"}),
                     400
                 )
-
-        listing_id = data["listing_id"]
-        date = data["date"]
-        price = data["price"]
-
         model_type, model = random_model()
-
-        result = model.detect_anomaly(listing_id, date, price)
+        result = model.detect_anomaly(data)
         log_ab_test(
-            listing_id=listing_id,
-            input_data={"price": price, "date": date},
+            input_data=data,
             model_used=model_type,
             prediction=result
         )
