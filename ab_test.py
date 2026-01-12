@@ -14,7 +14,6 @@ def random_model():
 
 
 def log_ab_test(
-        listing_id,
         input_data,
         model_used,
         prediction,
@@ -22,7 +21,6 @@ def log_ab_test(
         latency_ms=None):
     log_entry = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "listing_id": listing_id,
         "input_data": input_data,
         "model_used": model_used,
         "prediction": prediction,

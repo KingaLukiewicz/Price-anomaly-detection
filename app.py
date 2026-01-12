@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from ab_test import log_ab_test, random_model
+import time
 
 app = Flask(__name__)
 
@@ -20,11 +21,17 @@ def detect_anomaly():
                     400
                 )
         model_type, model = random_model()
+
+        start_time = time.perf_counter()
         result = model.detect_anomaly(data)
+        end_time = time.perf_counter()
+        latency_ms = (end_time - start_time) * 1000
+
         log_ab_test(
             input_data=data,
             model_used=model_type,
-            prediction=result
+            prediction=result,
+            latency_ms=latency_ms
         )
 
         return jsonify({"anomaly": result})
