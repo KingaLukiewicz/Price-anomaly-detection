@@ -1,13 +1,13 @@
 import json
 from datetime import datetime
 import random
-from models import AdvancedModel, BaseModel
+from model_wrapper import BaseModelWrapper, AdvancedModelWrapper
 
 
 def random_model():
     models = {
-        "base": BaseModel,
-        "advanced": AdvancedModel
+        "base": BaseModelWrapper,
+        "advanced": AdvancedModelWrapper
     }
     model_type = random.choice(["base", "advanced"])
     return model_type, models[model_type]()

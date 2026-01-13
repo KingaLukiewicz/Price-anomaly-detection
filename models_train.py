@@ -7,18 +7,23 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from hdbscan import HDBSCAN
+import hdbscan
 from typing import List, Optional, Tuple, Dict
 import warnings
 import sys
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
 
 
 class AnomalyDetectionError(Exception):
     """Custom exception for anomaly detection errors"""
+
     pass
 
 
-def load_data(filepath: str, selected_columns: Optional[List[str]] = None) -> pd.DataFrame:
+def load_data(
+    filepath: str, selected_columns: Optional[List[str]] = None
+) -> pd.DataFrame:
     """Load data from CSV file with optional column selection
 
     Args:
@@ -50,28 +55,29 @@ def load_data(filepath: str, selected_columns: Optional[List[str]] = None) -> pd
 
 
 def prepare_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Prepare features for training
+    """Prepare features for training - one-hot encode categorical columns
 
     Args:
-        df: Input DataFrame
+        df: Input DataFrame (numeric columns already standardized)
 
     Returns:
-        DataFrame with prepared features
+        DataFrame ready for model training
     """
     df_prep = df.copy()
 
     # One-hot encode categorical columns
-    categorical_cols = df_prep.select_dtypes(include=['object']).columns.tolist()
+    categorical_cols = df_prep.select_dtypes(include=["object"]).columns.tolist()
     if categorical_cols:
         print(f"One-hot encoding categorical columns: {categorical_cols}")
         df_prep = pd.get_dummies(df_prep, columns=categorical_cols, drop_first=True)
 
-    print(f"Final feature count: {len(df_prep.columns)}")
+    print(f"Feature count: {len(df_prep.columns)}")
     return df_prep
 
 
-def perform_clustering(X: np.ndarray, n_clusters: int = 5,
-                      method: str = 'kmeans') -> Tuple[np.ndarray, float]:
+def perform_clustering(
+    X: np.ndarray, n_clusters: int = 5, method: str = "kmeans"
+) -> Tuple[np.ndarray, float]:
     """Perform clustering on the data
 
     Args:
@@ -86,11 +92,11 @@ def perform_clustering(X: np.ndarray, n_clusters: int = 5,
         AnomalyDetectionError: If clustering fails
     """
     try:
-        if method == 'kmeans':
+        if method == "kmeans":
             print(f"Performing K-Means clustering with {n_clusters} clusters...")
             clusterer = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
             labels = clusterer.fit_predict(X)
-        elif method == 'hdbscan':
+        elif method == "hdbscan":
             print("Performing HDBSCAN clustering...")
             # More lenient parameters to find clusters in high-dimensional data
             min_cluster_size = max(10, len(X) // 80)
@@ -100,9 +106,9 @@ def perform_clustering(X: np.ndarray, n_clusters: int = 5,
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
                 cluster_selection_epsilon=0.0,
-                metric='euclidean',
-                cluster_selection_method='leaf',  # Changed from 'eom' to 'leaf' for more clusters
-                allow_single_cluster=True
+                metric="euclidean",
+                cluster_selection_method="leaf",  # Changed from 'eom' to 'leaf' for more clusters
+                allow_single_cluster=True,
             )
             labels = clusterer.fit_predict(X)
             n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
@@ -130,7 +136,9 @@ def perform_clustering(X: np.ndarray, n_clusters: int = 5,
         raise AnomalyDetectionError(f"Clustering failed: {e}") from e
 
 
-def train_base_model(X_train: np.ndarray, X_val: np.ndarray) -> Tuple[LocalOutlierFactor, Dict[str, float]]:
+def train_base_model(
+    X_train: np.ndarray, X_val: np.ndarray
+) -> Tuple[LocalOutlierFactor, Dict[str, float]]:
     """Train base model using LocalOutlierFactor with hyperparameter tuning
 
     Args:
@@ -140,9 +148,9 @@ def train_base_model(X_train: np.ndarray, X_val: np.ndarray) -> Tuple[LocalOutli
     Returns:
         Tuple of (best trained LOF model, best params dict)
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TRAINING BASE MODEL (LocalOutlierFactor)")
-    print("="*60)
+    print("=" * 60)
     print(f"Training samples: {len(X_train)}")
     print(f"Validation samples: {len(X_val)}")
     print("\nTuning hyperparameters...")
@@ -152,15 +160,13 @@ def train_base_model(X_train: np.ndarray, X_val: np.ndarray) -> Tuple[LocalOutli
     n_neighbors_values = [10, 20, 30, 50]
 
     best_model = None
-    best_score = float('inf')
+    best_score = float("inf")
     best_params = {}
 
     for contamination in contamination_values:
         for n_neighbors in n_neighbors_values:
             model = LocalOutlierFactor(
-                n_neighbors=n_neighbors,
-                contamination=contamination,
-                novelty=True
+                n_neighbors=n_neighbors, contamination=contamination, novelty=True
             )
             model.fit(X_train)
 
@@ -172,9 +178,9 @@ def train_base_model(X_train: np.ndarray, X_val: np.ndarray) -> Tuple[LocalOutli
                 best_score = avg_score
                 best_model = model
                 best_params = {
-                    'contamination': contamination,
-                    'n_neighbors': n_neighbors,
-                    'validation_score': avg_score
+                    "contamination": contamination,
+                    "n_neighbors": n_neighbors,
+                    "validation_score": avg_score,
                 }
 
     print(f"\nBest hyperparameters:")
@@ -185,96 +191,148 @@ def train_base_model(X_train: np.ndarray, X_val: np.ndarray) -> Tuple[LocalOutli
     # Get predictions on training data
     train_pred = best_model.predict(X_train)
     n_outliers = (train_pred == -1).sum()
-    print(f"Detected outliers in training data: {n_outliers} ({n_outliers/len(X_train)*100:.2f}%)")
+    print(
+        f"Detected outliers in training data: {n_outliers} ({n_outliers/len(X_train)*100:.2f}%)"
+    )
 
     return best_model, best_params
 
 
-def train_advanced_model(X_train: np.ndarray, X_val: np.ndarray,
-                        cluster_labels: np.ndarray) -> Dict[str, any]:
-    """Train advanced model using IsolationForest with HDBSCAN clustering
+def train_advanced_model(
+    X_train: np.ndarray, X_val: np.ndarray, cluster_labels: np.ndarray, clusterer
+) -> Dict[str, any]:
+    """Train advanced model using separate IsolationForest for each HDBSCAN cluster
 
     Args:
         X_train: Training features
         X_val: Validation features for hyperparameter selection
         cluster_labels: Cluster assignments from HDBSCAN
+        clusterer: Fitted HDBSCAN clusterer object
 
     Returns:
-        Dictionary containing IsolationForest model and cluster info
+        Dictionary containing IsolationForest models per cluster and cluster info
     """
-    print("\n" + "="*60)
-    print("TRAINING ADVANCED MODEL (IsolationForest + HDBSCAN)")
-    print("="*60)
+    print("\n" + "=" * 60)
+    print("TRAINING ADVANCED MODEL (IsolationForest per cluster + HDBSCAN)")
+    print("=" * 60)
     print(f"Training samples: {len(X_train)}")
     print(f"Validation samples: {len(X_val)}")
-    print("\nTuning hyperparameters...")
+
+    # Get unique clusters (excluding noise cluster -1)
+    unique_clusters = sorted([c for c in set(cluster_labels) if c != -1])
+    n_clusters = len(unique_clusters)
+    print(f"Number of clusters: {n_clusters}")
 
     # Grid search parameters
     contamination_values = [0.05, 0.1, 0.15, 0.2]
     n_estimators_values = [50, 100, 200]
 
-    best_model = None
-    best_score = float('inf')
-    best_params = {}
+    # Train separate Isolation Forest for each cluster
+    cluster_models = {}
+    cluster_params = {}
+    total_outliers = 0
 
-    for contamination in contamination_values:
-        for n_estimators in n_estimators_values:
-            if_model = IsolationForest(
-                n_estimators=n_estimators,
-                contamination=contamination,
-                random_state=42,
-                max_samples='auto'
-            )
-            if_model.fit(X_train)
-
-            # Score on validation set (lower is better)
-            val_scores = -if_model.score_samples(X_val)
-            avg_score = np.mean(val_scores)
-
-            if avg_score < best_score:
-                best_score = avg_score
-                best_model = if_model
-                best_params = {
-                    'contamination': contamination,
-                    'n_estimators': n_estimators,
-                    'validation_score': avg_score
-                }
-
-    print(f"\nBest hyperparameters:")
-    print(f"  Contamination: {best_params['contamination']}")
-    print(f"  N estimators: {best_params['n_estimators']}")
-    print(f"  Validation score: {best_params['validation_score']:.4f}")
-
-    # Get predictions with best model
-    train_pred = best_model.predict(X_train)
-    n_outliers = (train_pred == -1).sum()
-    print(f"Detected outliers in training data: {n_outliers} ({n_outliers/len(X_train)*100:.2f}%)")
-
-    # Analyze outliers by cluster
-    print("\nOutlier distribution by cluster:")
-    unique_clusters = sorted(set(cluster_labels))
+    print("\nTraining Isolation Forest for each cluster...")
     for cluster in unique_clusters:
         cluster_mask = cluster_labels == cluster
-        cluster_outliers = ((train_pred == -1) & cluster_mask).sum()
-        cluster_size = cluster_mask.sum()
-        cluster_name = "Noise" if cluster == -1 else f"Cluster {cluster}"
-        print(f"  {cluster_name}: {cluster_outliers}/{cluster_size} " +
-              f"({cluster_outliers/cluster_size*100:.1f}% outliers)")
+        X_cluster = X_train[cluster_mask]
+        cluster_size = len(X_cluster)
+
+        print(f"\n--- Cluster {cluster} ({cluster_size} samples) ---")
+
+        if cluster_size < 10:
+            print(f"  Warning: Too few samples, skipping this cluster")
+            continue
+
+        # Hyperparameter tuning for this cluster
+        best_model = None
+        best_score = float("inf")
+        best_params = {}
+
+        for contamination in contamination_values:
+            for n_estimators in n_estimators_values:
+                # Adjust contamination if cluster is very small
+                adjusted_contamination = min(contamination, 0.5)
+
+                try:
+                    if_model = IsolationForest(
+                        n_estimators=n_estimators,
+                        contamination=adjusted_contamination,
+                        random_state=42,
+                        max_samples=min(256, cluster_size),
+                    )
+                    if_model.fit(X_cluster)
+
+                    # Score on cluster samples
+                    cluster_scores = -if_model.score_samples(X_cluster)
+                    avg_score = np.mean(cluster_scores)
+
+                    if avg_score < best_score:
+                        best_score = avg_score
+                        best_model = if_model
+                        best_params = {
+                            "contamination": adjusted_contamination,
+                            "n_estimators": n_estimators,
+                            "validation_score": avg_score,
+                        }
+                except Exception as e:
+                    # Skip this parameter combination if it fails
+                    continue
+
+        if best_model is None:
+            print(f"  Warning: Failed to train model for cluster {cluster}")
+            continue
+
+        cluster_models[cluster] = best_model
+        cluster_params[cluster] = best_params
+
+        # Get predictions
+        train_pred = best_model.predict(X_cluster)
+        n_outliers = (train_pred == -1).sum()
+        total_outliers += n_outliers
+
+        print(
+            f"  Best params: contamination={best_params['contamination']}, n_estimators={best_params['n_estimators']}"
+        )
+        print(
+            f"  Outliers detected: {n_outliers}/{cluster_size} ({n_outliers/cluster_size*100:.1f}%)"
+        )
+
+    # Handle noise cluster (-1) with a separate global model
+    noise_mask = cluster_labels == -1
+    if noise_mask.sum() > 10:
+        print(f"\n--- Noise cluster ({noise_mask.sum()} samples) ---")
+        X_noise = X_train[noise_mask]
+        # Use lower contamination for noise cluster to avoid too many false positives
+        noise_model = IsolationForest(
+            n_estimators=100,
+            contamination=0.05,  # Lower contamination to reduce false positives
+            random_state=42,
+            max_samples="auto",
+        )
+        noise_model.fit(X_noise)
+        cluster_models[-1] = noise_model
+        cluster_params[-1] = {"contamination": 0.05, "n_estimators": 100}
+        print(f"  Trained noise cluster model with contamination=0.05")
+
+    print(f"\nTotal models trained: {len(cluster_models)}")
+    print(
+        f"Total outliers across all clusters: {total_outliers}/{len(X_train)} ({total_outliers/len(X_train)*100:.1f}%)"
+    )
 
     model_dict = {
-        'isolation_forest': best_model,
-        'cluster_labels': cluster_labels,
-        'n_clusters': len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0),
-        'best_params': best_params
+        "cluster_models": cluster_models,  # Dict: cluster_id -> IsolationForest
+        "clusterer": clusterer,  # HDBSCAN object for predicting cluster of new data
+        "cluster_labels": cluster_labels,
+        "n_clusters": n_clusters,
+        "cluster_params": cluster_params,
     }
 
     return model_dict
 
 
 def evaluate_model(
-    model, X_test: np.ndarray,
-    model_name: str = "Model",
-    is_advanced: bool = False
+    model, X_test: np.ndarray, model_name: str = "Model", is_advanced: bool = False
 ) -> Dict[str, float]:
     """Evaluate anomaly detection model
 
@@ -287,14 +345,50 @@ def evaluate_model(
     Returns:
         Dictionary with metrics
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print(f"EVALUATING {model_name}")
-    print("="*60)
+    print("=" * 60)
 
     if is_advanced:
-        predictions = model['isolation_forest'].predict(X_test)
+        # Predict cluster for each test sample using HDBSCAN
+        test_cluster_labels, _ = hdbscan.approximate_predict(model["clusterer"], X_test)
+        cluster_models = model["cluster_models"]
+
+        # Make predictions using cluster-specific models
+        predictions = np.zeros(len(X_test))
+        scores = np.zeros(len(X_test))
+
+        for cluster_id, if_model in cluster_models.items():
+            cluster_mask = test_cluster_labels == cluster_id
+            if cluster_mask.sum() == 0:
+                continue
+
+            X_cluster = X_test[cluster_mask]
+            cluster_predictions = if_model.predict(X_cluster)
+            cluster_scores = if_model.score_samples(X_cluster)
+
+            predictions[cluster_mask] = cluster_predictions
+            scores[cluster_mask] = cluster_scores
+
+        # Handle samples assigned to clusters without models
+        unassigned_mask = predictions == 0
+        if unassigned_mask.sum() > 0:
+            # Use noise model if available, otherwise mark as normal
+            if -1 in cluster_models:
+                predictions[unassigned_mask] = cluster_models[-1].predict(
+                    X_test[unassigned_mask]
+                )
+                scores[unassigned_mask] = cluster_models[-1].score_samples(
+                    X_test[unassigned_mask]
+                )
+            else:
+                predictions[unassigned_mask] = 1  # Mark as normal
+                scores[unassigned_mask] = 0.0
+
+        predictions = predictions.astype(int)
     else:
         predictions = model.predict(X_test)
+        scores = model.score_samples(X_test)
 
     n_outliers = (predictions == -1).sum()
     outlier_rate = n_outliers / len(X_test) * 100
@@ -303,39 +397,53 @@ def evaluate_model(
     print(f"Detected outliers: {n_outliers} ({outlier_rate:.2f}%)")
 
     # Calculate anomaly scores
-    if is_advanced:
-        scores = model['isolation_forest'].score_samples(X_test)
-    else:
-        scores = model.score_samples(X_test)
-
     print("Anomaly score statistics:")
     print(f"  Mean: {scores.mean():.4f}")
     print(f"  Std: {scores.std():.4f}")
     print(f"  Min: {scores.min():.4f}")
     print(f"  Max: {scores.max():.4f}")
 
+    # For advanced model, show distribution by cluster
+    if is_advanced:
+        print("\nOutlier distribution by cluster:")
+        unique_test_clusters = sorted(set(test_cluster_labels))
+        for cluster in unique_test_clusters:
+            cluster_mask = test_cluster_labels == cluster
+            cluster_outliers = ((predictions == -1) & cluster_mask).sum()
+            cluster_size = cluster_mask.sum()
+            cluster_name = "Noise" if cluster == -1 else f"Cluster {cluster}"
+            if cluster_size > 0:
+                print(
+                    f"  {cluster_name}: {cluster_outliers}/{cluster_size} "
+                    + f"({cluster_outliers/cluster_size*100:.1f}% outliers)"
+                )
+
     metrics = {
-        'outlier_count': n_outliers,
-        'outlier_rate': outlier_rate,
-        'score_mean': scores.mean(),
-        'score_std': scores.std(),
-        'score_min': scores.min(),
-        'score_max': scores.max()
+        "outlier_count": n_outliers,
+        "outlier_rate": outlier_rate,
+        "score_mean": scores.mean(),
+        "score_std": scores.std(),
+        "score_min": scores.min(),
+        "score_max": scores.max(),
     }
 
     return metrics
 
 
-def save_models(base_model, advanced_model, scaler: StandardScaler,
-                base_path: str = "models/base_model.pkl",
-                advanced_path: str = "models/advanced_model.pkl",
-                scaler_path: str = "models/scaler.pkl") -> None:
+def save_models(
+    base_model,
+    advanced_model,
+    scaler: Optional[StandardScaler] = None,
+    base_path: str = "models/base_model.pkl",
+    advanced_path: str = "models/advanced_model.pkl",
+    scaler_path: str = "models/scaler.pkl",
+) -> None:
     """Save trained models and scaler
 
     Args:
         base_model: Trained base model
         advanced_model: Trained advanced model
-        scaler: Fitted StandardScaler
+        scaler: Fitted StandardScaler (optional, already saved by prepare_data.py)
         base_path: Path to save base model
         advanced_path: Path to save advanced model
         scaler_path: Path to save scaler
@@ -343,169 +451,200 @@ def save_models(base_model, advanced_model, scaler: StandardScaler,
     try:
         # Create models directory if it doesn't exist
         import os
-        os.makedirs('models', exist_ok=True)
+
+        os.makedirs("models", exist_ok=True)
 
         joblib.dump(base_model, base_path)
         joblib.dump(advanced_model, advanced_path)
-        joblib.dump(scaler, scaler_path)
 
-        print("\n" + "="*60)
+        if scaler is not None:
+            joblib.dump(scaler, scaler_path)
+
+        print("\n" + "=" * 60)
         print("MODELS SAVED")
-        print("="*60)
+        print("=" * 60)
         print(f"Base model: {base_path}")
         print(f"Advanced model: {advanced_path}")
-        print(f"Scaler: {scaler_path}")
+        if scaler is not None:
+            print(f"Scaler: {scaler_path}")
+        else:
+            print(f"Scaler: (already saved by prepare_data.py)")
 
     except (IOError, OSError) as e:
         raise IOError(f"Error saving models: {e}") from e
 
 
 def train_anomaly_detection_models(
-    train_path: str = 'data/data.csv',
-    test_path: str = 'data/test_data.csv',
-    val_split: float = 0.2
+    train_path: str = "data/data.csv",
+    test_path: str = "data/test_data.csv",
 ) -> None:
     """Main function to train anomaly detection models
 
     Args:
-        train_path: Path to training data (data.csv - already split)
-        test_path: Path to test data (test_data.csv - already split)
-        val_split: Proportion of training data to use for validation
+        train_path: Path to training data (already preprocessed and standardized)
+        test_path: Path to test data (already preprocessed and standardized)
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("ANOMALY DETECTION MODEL TRAINING")
-    print("="*60)
+    print("=" * 60)
     print(f"Training data: {train_path}")
     print(f"Test data: {test_path}")
 
-    # Load data (already split into train/test by prepare_data.py)
+    # Load data (already split and standardized by prepare_data.py)
     print("\nLoading training data...")
     train_df = load_data(train_path)
 
     print("\nLoading test data...")
     test_df = load_data(test_path)
 
-    # Prepare features
+    # Prepare features (data already preprocessed)
     train_features = prepare_features(train_df)
     test_features = prepare_features(test_df)
 
-    # Ensure same columns in train and test
+    # Ensure same columns in all sets
     common_cols = train_features.columns.intersection(test_features.columns)
     train_features = train_features[common_cols]
     test_features = test_features[common_cols]
 
-    # Convert to numpy arrays
-    X_train_full = train_features.values
+    # Convert to numpy arrays (already standardized)
+    X_train = train_features.values
     X_test = test_features.values
 
-    # Split training data into train + validation for hyperparameter tuning
-    from sklearn.model_selection import train_test_split
-    X_train, X_val = train_test_split(X_train_full, test_size=val_split, random_state=42)
-    print(f"\nData split:")
+    print(f"\nData loaded:")
     print(f"  Training: {len(X_train)} samples")
-    print(f"  Validation: {len(X_val)} samples")
     print(f"  Test: {len(X_test)} samples")
-
-    # Standardization
-    print("\nStandardizing features...")
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_val_scaled = scaler.transform(X_val)
-    X_test_scaled = scaler.transform(X_test)
+    print(f"  Features: {len(common_cols)} columns")
 
     # Clustering for data exploration and advanced model
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("CLUSTERING ANALYSIS")
-    print("="*60)
+    print("=" * 60)
 
     # Try different cluster numbers for K-means and select best
     best_silhouette = -1
     best_n_clusters = 5
     for n_clusters in [3, 5, 7, 10]:
         _, silhouette = perform_clustering(
-            X_train_scaled, n_clusters=n_clusters, method='kmeans'
+            X_train, n_clusters=n_clusters, method="kmeans"
         )
         if silhouette > best_silhouette:
             best_silhouette = silhouette
             best_n_clusters = n_clusters
 
-    print(f"\nBest K-means configuration: {best_n_clusters} clusters (silhouette: {best_silhouette:.4f})")
-
-    # Use HDBSCAN for advanced model (automatic cluster detection)
-    cluster_labels_hdbscan, silhouette_hdbscan = perform_clustering(
-        X_train_scaled, method='hdbscan'
+    print(
+        f"\nBest K-means configuration: {best_n_clusters} clusters (silhouette: {best_silhouette:.4f})"
     )
 
-    # Train base model (LOF) with hyperparameter tuning
-    base_model, base_params = train_base_model(X_train_scaled, X_val_scaled)
+    # Use HDBSCAN for advanced model (automatic cluster detection)
+    # We need to keep the clusterer object to predict clusters for new data
+    print("\nFitting HDBSCAN clusterer for advanced model...")
+    min_cluster_size = max(10, len(X_train) // 80)
+    min_samples = max(3, len(X_train) // 200)
+    clusterer = HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        cluster_selection_epsilon=0.0,
+        metric="euclidean",
+        cluster_selection_method="leaf",
+        allow_single_cluster=True,
+        prediction_data=True,  # Enable prediction for new data
+    )
+    cluster_labels_hdbscan = clusterer.fit_predict(X_train)
+    n_clusters_found = len(set(cluster_labels_hdbscan)) - (
+        1 if -1 in cluster_labels_hdbscan else 0
+    )
+    print(f"HDBSCAN found {n_clusters_found} clusters")
 
-    # Train advanced model (IsolationForest + HDBSCAN) with hyperparameter tuning
+    # Show cluster distribution
+    unique, counts = np.unique(cluster_labels_hdbscan, return_counts=True)
+    for label, count in zip(unique, counts):
+        cluster_name = "Noise" if label == -1 else f"Cluster {label}"
+        print(
+            f"  {cluster_name}: {count} samples ({count/len(cluster_labels_hdbscan)*100:.1f}%)"
+        )
+
+    # Train base model (LOF) with hyperparameter tuning
+    base_model, base_params = train_base_model(X_train, X_train)
+
+    # Train advanced model (separate IsolationForest per cluster + HDBSCAN)
     advanced_model = train_advanced_model(
-        X_train_scaled, X_val_scaled, cluster_labels_hdbscan
+        X_train, X_train, cluster_labels_hdbscan, clusterer
     )
 
     # Evaluate models on test set
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("MODEL EVALUATION ON TEST SET")
-    print("="*60)
+    print("=" * 60)
 
-    base_metrics = evaluate_model(
-        base_model,
-        X_test_scaled,
-        "BASE MODEL (LOF)"
-    )
+    base_metrics = evaluate_model(base_model, X_test, "BASE MODEL (LOF)")
     advanced_metrics = evaluate_model(
-        advanced_model,
-        X_test_scaled,
-        "ADVANCED MODEL (IF+HDBSCAN)",
-        is_advanced=True
+        advanced_model, X_test, "ADVANCED MODEL (IF+HDBSCAN)", is_advanced=True
     )
 
     # Compare models
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("MODEL COMPARISON")
-    print("="*60)
+    print("=" * 60)
     print(f"\n{'Metric':<30} {'Base (LOF)':<20} {'Advanced (IF+HDBSCAN)':<20}")
-    print("-"*70)
-    print(f"{'Outliers detected':<30} {base_metrics['outlier_count']:<20} {advanced_metrics['outlier_count']:<20}")
-    print(f"{'Outlier rate (%)':<30} {base_metrics['outlier_rate']:<20.2f} {advanced_metrics['outlier_rate']:<20.2f}")
-    print(f"{'Mean anomaly score':<30} {base_metrics['score_mean']:<20.4f} {advanced_metrics['score_mean']:<20.4f}")
-    print(f"{'Std anomaly score':<30} {base_metrics['score_std']:<20.4f} {advanced_metrics['score_std']:<20.4f}")
-    print("-"*70)
+    print("-" * 70)
+    print(
+        f"{'Outliers detected':<30} {base_metrics['outlier_count']:<20} {advanced_metrics['outlier_count']:<20}"
+    )
+    print(
+        f"{'Outlier rate (%)':<30} {base_metrics['outlier_rate']:<20.2f} {advanced_metrics['outlier_rate']:<20.2f}"
+    )
+    print(
+        f"{'Mean anomaly score':<30} {base_metrics['score_mean']:<20.4f} {advanced_metrics['score_mean']:<20.4f}"
+    )
+    print(
+        f"{'Std anomaly score':<30} {base_metrics['score_std']:<20.4f} {advanced_metrics['score_std']:<20.4f}"
+    )
+    print("-" * 70)
 
     # Recommendation
     print("\nRecommendation:")
-    if abs(base_metrics['outlier_rate'] - 10.0) < abs(advanced_metrics['outlier_rate'] - 10.0):
+    if abs(base_metrics["outlier_rate"] - 10.0) < abs(
+        advanced_metrics["outlier_rate"] - 10.0
+    ):
         print("  → Base model (LOF) has more reasonable outlier detection rate")
     else:
-        print("  → Advanced model (IF+HDBSCAN) has more reasonable outlier detection rate")
+        print(
+            "  → Advanced model (IF+HDBSCAN) has more reasonable outlier detection rate"
+        )
 
-    if base_metrics['score_std'] < advanced_metrics['score_std']:
+    if base_metrics["score_std"] < advanced_metrics["score_std"]:
         print("  → Base model shows more stable anomaly scores")
     else:
         print("  → Advanced model shows more stable anomaly scores")
 
-    # Save models
-    save_models(base_model, advanced_model, scaler)
+    # Save models (without scaler - it's saved by prepare_data.py)
+    save_models(base_model, advanced_model, None)
+
+    # Save column names for feature alignment during inference
+    import os
+
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(list(common_cols), "models/feature_columns.pkl")
+    print(f"Feature columns saved to: models/feature_columns.pkl")
 
     # Save hyperparameters and metrics
     import json
     import os
-    os.makedirs('models', exist_ok=True)
+
+    os.makedirs("models", exist_ok=True)
 
     results = {
-        'base_model': {
-            'hyperparameters': base_params,
-            'test_metrics': base_metrics
+        "base_model": {"hyperparameters": base_params, "test_metrics": base_metrics},
+        "advanced_model": {
+            "hyperparameters": {
+                str(k): v for k, v in advanced_model["cluster_params"].items()
+            },
+            "test_metrics": advanced_metrics,
+            "n_clusters": advanced_model["n_clusters"],
         },
-        'advanced_model': {
-            'hyperparameters': advanced_model['best_params'],
-            'test_metrics': advanced_metrics,
-            'n_clusters': advanced_model['n_clusters']
-        }
     }
 
-    with open('models/training_results.json', 'w') as f:
+    with open("models/training_results.json", "w") as f:
         # Convert numpy types to python types for JSON serialization
         def convert_numpy(obj):
             if isinstance(obj, np.integer):
@@ -515,35 +654,29 @@ def train_anomaly_detection_models(
             elif isinstance(obj, np.ndarray):
                 return obj.tolist()
             elif isinstance(obj, dict):
-                return {key: convert_numpy(value) for key, value in obj.items()}
+                return {str(key): convert_numpy(value) for key, value in obj.items()}
             return obj
 
         json.dump(convert_numpy(results), f, indent=2)
 
     print("Training results saved to: models/training_results.json")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TRAINING COMPLETE")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Train anomaly detection models')
-    parser.add_argument('--train', default='data/data.csv', help='Training data path')
-    parser.add_argument('--test', default='data/test_data.csv', help='Test data path')
-    parser.add_argument('--val-split', type=float, default=0.25,
-                       help='Proportion of training data for validation (default: 0.25)')
+    parser = argparse.ArgumentParser(description="Train anomaly detection models")
+    parser.add_argument("--train", default="data/data.csv", help="Training data path")
+    parser.add_argument("--test", default="data/test_data.csv", help="Test data path")
 
     args = parser.parse_args()
 
     try:
-        train_anomaly_detection_models(
-            train_path=args.train,
-            test_path=args.test,
-            val_split=args.val_split
-        )
+        train_anomaly_detection_models(train_path=args.train, test_path=args.test)
     except (FileNotFoundError, AnomalyDetectionError, IOError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

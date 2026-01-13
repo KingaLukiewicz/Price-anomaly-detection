@@ -38,19 +38,14 @@ def parse_amenities(amenities_str) -> Set[str]:
         except (ValueError, SyntaxError):
             # Fallback: simple string parsing
             amenities_str = amenities_str.strip("[]{}")
-            amenities = [
-                a.strip().strip("\"'") for a in amenities_str.split(",")
-            ]
+            amenities = [a.strip().strip("\"'") for a in amenities_str.split(",")]
             return set(a for a in amenities if a)
     except (AttributeError, TypeError) as e:
         print(f"Warning: Could not parse amenities: {e}")
         return set()
 
 
-def load_and_select_columns(
-    filepath: str,
-    required_columns: List[str]
-) -> pd.DataFrame:
+def load_and_select_columns(filepath: str, required_columns: List[str]) -> pd.DataFrame:
     """Load CSV file and select required columns
 
     Args:
@@ -68,14 +63,11 @@ def load_and_select_columns(
         print(f"Loading {filepath}...")
         df = pd.read_csv(filepath)
     except FileNotFoundError as e:
-        raise FileNotFoundError(
-            f"File not found: {filepath}") from e
+        raise FileNotFoundError(f"File not found: {filepath}") from e
     except pd.errors.EmptyDataError as e:
-        raise DataPreparationError(
-            f"File is empty: {filepath}") from e
+        raise DataPreparationError(f"File is empty: {filepath}") from e
     except pd.errors.ParserError as e:
-        raise DataPreparationError(
-            f"Error parsing CSV file: {filepath}") from e
+        raise DataPreparationError(f"Error parsing CSV file: {filepath}") from e
 
     missing_cols = [col for col in required_columns if col not in df.columns]
     if missing_cols:
@@ -88,9 +80,7 @@ def load_and_select_columns(
     print(f"Rows after removing NaN: {len(df)}")
 
     if len(df) == 0:
-        raise DataPreparationError(
-            "No data remaining after removing NaN values"
-        )
+        raise DataPreparationError("No data remaining after removing NaN values")
 
     return df
 
@@ -117,10 +107,7 @@ def extract_unique_amenities(df: pd.DataFrame) -> List[str]:
     return all_amenities
 
 
-def create_amenity_columns(
-    df: pd.DataFrame,
-    all_amenities: List[str]
-) -> pd.DataFrame:
+def create_amenity_columns(df: pd.DataFrame, all_amenities: List[str]) -> pd.DataFrame:
     """Create binary columns for each amenity
 
     Args:
@@ -179,32 +166,46 @@ def clean_price_column(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def standardize_numeric_columns(
-    df: pd.DataFrame, numeric_columns: List[str]
-) -> pd.DataFrame:
+    train_df: pd.DataFrame, test_df: pd.DataFrame, numeric_columns: List[str]
+) -> Tuple[pd.DataFrame, pd.DataFrame, StandardScaler]:
     """Standardize numeric columns using StandardScaler
 
+    Fits scaler on training data only, then transforms both train and test.
+    This prevents data leakage.
+
     Args:
-        df: DataFrame with numeric columns
+        train_df: Training DataFrame
+        test_df: Test DataFrame
         numeric_columns: List of column names to standardize
 
     Returns:
-        DataFrame with standardized columns
+        Tuple of (standardized train_df, standardized test_df, fitted scaler)
 
     Raises:
         DataPreparationError: If standardization fails
     """
-    numeric_columns = [col for col in numeric_columns if col in df.columns]
+    numeric_columns = [col for col in numeric_columns if col in train_df.columns]
 
     if not numeric_columns:
-        raise DataPreparationError(
-            "No numeric columns found for standardization")
+        raise DataPreparationError("No numeric columns found for standardization")
 
     print(f"\nStandardizing numeric columns: {numeric_columns}")
+    print("  Fitting scaler on TRAINING data only (preventing data leakage)")
 
     try:
         scaler = StandardScaler()
-        df[numeric_columns] = scaler.fit_transform(df[numeric_columns])
-        return df
+        # Fit only on training data
+        scaler.fit(train_df[numeric_columns])
+
+        # Transform both train and test
+        train_df[numeric_columns] = scaler.transform(train_df[numeric_columns])
+        test_df[numeric_columns] = scaler.transform(test_df[numeric_columns])
+
+        print(f"  Scaler params (from training data):")
+        print(f"    Mean: {scaler.mean_}")
+        print(f"    Std: {scaler.scale_}")
+
+        return train_df, test_df, scaler
     except ValueError as e:
         raise DataPreparationError(f"Error during standardization: {e}") from e
 
@@ -227,18 +228,10 @@ def split_train_test(
     """
     try:
         # Create price bins for stratification
-        df["price_bin"] = pd.qcut(
-            df["price"],
-            q=5,
-            labels=False,
-            duplicates="drop"
-        )
+        df["price_bin"] = pd.qcut(df["price"], q=5, labels=False, duplicates="drop")
 
         train_df, test_df = train_test_split(
-            df,
-            test_size=test_size,
-            random_state=random_state,
-            stratify=df["price_bin"]
+            df, test_size=test_size, random_state=random_state, stratify=df["price_bin"]
         )
 
         # Remove the price_bin column
@@ -361,20 +354,14 @@ def visualize_price_distribution(
         sorted_test = np.sort(test_prices)
         # Use same number of quantiles
         n_quantiles = min(len(sorted_train), len(sorted_test))
-        train_quantiles = np.percentile(
-            sorted_train, np.linspace(0, 100, n_quantiles))
-        test_quantiles = np.percentile(
-            sorted_test, np.linspace(0, 100, n_quantiles))
+        train_quantiles = np.percentile(sorted_train, np.linspace(0, 100, n_quantiles))
+        test_quantiles = np.percentile(sorted_test, np.linspace(0, 100, n_quantiles))
 
         ax3.scatter(train_quantiles, test_quantiles, alpha=0.5, s=10)
         min_val = min(train_quantiles.min(), test_quantiles.min())
         max_val = max(train_quantiles.max(), test_quantiles.max())
         ax3.plot(
-            [min_val, max_val],
-            [min_val, max_val],
-            "r--",
-            lw=2,
-            label="Perfect match"
+            [min_val, max_val], [min_val, max_val], "r--", lw=2, label="Perfect match"
         )
         ax3.set_xlabel("Train Quantiles")
         ax3.set_ylabel("Test Quantiles")
@@ -421,10 +408,7 @@ def visualize_price_distribution(
         print(f"Warning: Could not create visualization: {e}")
 
 
-def statistical_comparison(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame
-) -> None:
+def statistical_comparison(train_df: pd.DataFrame, test_df: pd.DataFrame) -> None:
     """Perform statistical tests to compare train and test distributions
 
     Args:
@@ -450,21 +434,13 @@ def statistical_comparison(
     print("-" * 60)
     print(f"{'Metric':<20} {'Train':<20} {'Test':<20}")
     print("-" * 60)
-    print(
-        f"{'Mean':<20} {train_prices.mean():<20.4f} {test_prices.mean():<20.4f}"
-    )
-    print(
-        f"{'Std Dev':<20} {train_prices.std():<20.4f} {test_prices.std():<20.4f}"
-    )
+    print(f"{'Mean':<20} {train_prices.mean():<20.4f} {test_prices.mean():<20.4f}")
+    print(f"{'Std Dev':<20} {train_prices.std():<20.4f} {test_prices.std():<20.4f}")
     print(
         f"{'Median':<20} {np.median(train_prices):<20.4f} {np.median(test_prices):<20.4f}"
     )
-    print(
-        f"{'Min':<20} {train_prices.min():<20.4f} {test_prices.min():<20.4f}"
-    )
-    print(
-        f"{'Max':<20} {train_prices.max():<20.4f} {test_prices.max():<20.4f}"
-    )
+    print(f"{'Min':<20} {train_prices.min():<20.4f} {test_prices.min():<20.4f}")
+    print(f"{'Max':<20} {train_prices.max():<20.4f} {test_prices.max():<20.4f}")
     print(
         f"{'25th percentile':<20} {np.percentile(train_prices, 25):<20.4f} {np.percentile(test_prices, 25):<20.4f}"
     )
@@ -517,13 +493,8 @@ def prepare_data(
         # "amenities",  # Commented out - not using amenities for now
     ]
 
-    numeric_columns = [
-        "accommodates",
-        "bathrooms",
-        "bedrooms",
-        "beds",
-        "price"
-    ]
+    # Only standardize features, NOT the target price!
+    numeric_columns = ["accommodates", "bathrooms", "bedrooms", "beds"]
 
     # Load and select columns
     df = load_and_select_columns(input_path, required_columns)
@@ -538,11 +509,21 @@ def prepare_data(
     print(f"Total number of rows: {len(df)}")
     print(f"Total number of columns: {len(df.columns)}")
 
-    # Standardize numeric columns
-    df = standardize_numeric_columns(df, numeric_columns)
-
-    # Split into train and test
+    # Split into train and test FIRST (before scaling!)
     train_df, test_df = split_train_test(df)
+
+    # Standardize numeric columns AFTER split (prevents data leakage)
+    train_df, test_df, scaler = standardize_numeric_columns(
+        train_df, test_df, numeric_columns
+    )
+
+    # Save scaler for later use
+    import joblib
+    import os
+
+    os.makedirs("models", exist_ok=True)
+    joblib.dump(scaler, "models/scaler.pkl")
+    print(f"Scaler saved to: models/scaler.pkl")
 
     # Save datasets
     save_datasets(train_df, test_df, train_output, test_output)
