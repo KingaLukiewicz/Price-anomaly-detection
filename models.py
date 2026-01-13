@@ -315,7 +315,7 @@ class AdvancedModel(Model):
         for f in ['accommodates', 'bathrooms', 'bedrooms', 'beds']:
             if f not in input_df:
                 input_df[f] = 0
-        
+
         input_string = pd.get_dummies(input_df[string_features], drop_first=True)
 
         for col in df_string.columns:
