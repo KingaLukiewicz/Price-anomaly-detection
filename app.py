@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
-from ab_test import log_ab_test, random_model
+from ab_test import log_ab_test, random_model, preprocess_input
 import time
+import pandas as pd
+import numpy as np
 
 app = Flask(__name__)
 
@@ -22,8 +24,10 @@ def detect_anomaly():
                 )
         model_type, model = random_model()
 
+        data = preprocess_input(data)
+
         start_time = time.perf_counter()
-        result = model.detect_anomaly(data)
+        result = model.predict(data)
         end_time = time.perf_counter()
         latency_ms = (end_time - start_time) * 1000
 

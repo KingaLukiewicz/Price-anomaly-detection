@@ -1,42 +1,51 @@
 import pandas as pd
-import numpy as np
+import hdbscan
 from models import BaseModel, AdvancedModel, compute_ground_truth, evaluate
 
 train_df = pd.read_csv("data/data.csv")
 val_df = pd.read_csv("data/val_data.csv")
 test_df = pd.read_csv("data/test_data.csv")
 
-feature_cols = [col for col in train_df.columns if col not in ["price",
-                                                               "log_price"]]
+# feature_cols = [col for col in train_df.columns if col not in ["price"]]
 
-X_train = train_df[feature_cols]
-X_val = val_df[feature_cols]
-X_test = test_df[feature_cols]
+X_train = train_df[train_df.columns]
+X_val = val_df[train_df.columns]
+X_test = test_df[train_df.columns]
 
 X_train_array = X_train.to_numpy()
 X_val_array = X_val.to_numpy()
 X_test_array = X_test.to_numpy()
 
-y_train = compute_ground_truth(train_df)
-y_val = compute_ground_truth(val_df)
-y_test = compute_ground_truth(test_df)
-
+# BaseModel
 print("Tuning and training BaseModel")
 base_model = BaseModel()
-base_model.tune(X_train_array, y_train, X_val_array, y_val,
+base_model.tune(X_train, train_df["log_price"], X_val, val_df["log_price"],
                 cluster_values=[3, 5, 7], lof_neighbors=[10, 20, 30])
 
-y_pred_base = base_model.predict(X_test_array)
-metrics_base = evaluate(y_test, y_pred_base)
+cluster_labels_test = base_model.kmeans.predict(X_test)
+df_test_base = pd.DataFrame({
+    "log_price": test_df["log_price"],
+    "cluster_labels": cluster_labels_test
+})
+y_test_base = compute_ground_truth(df_test_base, cluster_col="cluster_labels")
+y_pred_base = base_model.predict(X_test)
+metrics_base = evaluate(y_test_base, y_pred_base)
 print("BaseModel metrics:", metrics_base)
 
+# AdvancedModel
 print("Tuning and training AdvancedModel")
 adv_model = AdvancedModel()
-adv_model.tune(X_train_array, y_train, X_val_array, y_val,
+adv_model.tune(X_train, train_df["log_price"], X_val, val_df["log_price"],
                cluster_sizes=[5, 10, 15], contamination_values=[0.03, 0.05, 0.07])
 
-y_pred_adv = adv_model.predict(X_test_array)
-metrics_adv = evaluate(y_test, y_pred_adv)
+cluster_labels_test, strengths = hdbscan.approximate_predict(adv_model.clusterer, X_test)
+df_test_adv = pd.DataFrame({
+    "log_price": test_df["log_price"],
+    "cluster_labels": cluster_labels_test
+})
+y_test_adv = compute_ground_truth(df_test_adv, cluster_col="cluster_labels")
+y_pred_adv = adv_model.predict(X_test)
+metrics_adv = evaluate(y_test_adv, y_pred_adv)
 print("AdvancedModel metrics:", metrics_adv)
 
 base_model.save("models/base_model.pkl")

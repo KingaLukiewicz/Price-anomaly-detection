@@ -17,15 +17,15 @@ def compute_ground_truth(df: pd.DataFrame, cluster_col: str = None
     if cluster_col is None:
         mu = df['log_price'].mean()
         sigma = df['log_price'].std()
-        return ((df['log_price'] < mu - 3*sigma) |
-                (df['log_price'] > mu + 3*sigma)).astype(int)
+        return ((df['log_price'] < mu - 2*sigma) |
+                (df['log_price'] > mu + 2*sigma)).astype(int)
     else:
         labels = []
         for _, group in df.groupby(cluster_col):
             mu = group['log_price'].mean()
             sigma = group['log_price'].std()
-            labels.extend(((group['log_price'] < mu - 3*sigma) |
-                           (group['log_price'] > mu + 3*sigma)).astype(int))
+            labels.extend(((group['log_price'] < mu - 2*sigma) |
+                           (group['log_price'] > mu + 2*sigma)).astype(int))
         return pd.Series(labels, index=df.index)
 
 
