@@ -184,6 +184,6 @@ class AdvancedModel(Model):
             else:
                 mu = cluster_prices.median()
                 high = mu * (1 + self.threshold)
-            y_pred[idx] = (cluster_prices > high).astype(int))
+            y_pred[idx] = (cluster_prices > high).astype(int)
 
         return y_pred
