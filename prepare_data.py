@@ -129,14 +129,19 @@ def prepare_data(
     df["log_price"] = np.log1p(df["price"])
 
     # One-hot encoding categorical data
-    df = pd.get_dummies(df, columns=categorical_columns, drop_first=True)
+    df_cat = pd.get_dummies(df[categorical_columns], drop_first=True)
 
-    encoded_columns = df.columns.tolist()
+    # Save encoded column names (categorical only)
+    encoded_columns = df_cat.columns.tolist()
     joblib.dump(encoded_columns, "models/encoded_columns.pkl")
     print("Encoded columns saved to: models/encoded_columns.pkl")
 
-    # Split into train, validation and test sets
-    train_df, val_df, test_df = split_train_val_test(df)
+    # Combine numeric columns and categorical dummy columns back
+    df_processed = pd.concat([df[numeric_columns + ["log_price", "price"]],
+                              df_cat], axis=1)
+
+    # Split into train, validation, test sets
+    train_df, val_df, test_df = split_train_val_test(df_processed)
 
     # Standardize numeric columns AFTER split (prevents data leakage)
     train_df, val_df, test_df, scaler = scale_numeric(

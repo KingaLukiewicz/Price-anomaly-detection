@@ -9,8 +9,8 @@ test_df = pd.read_csv("data/test_data.csv")
 # feature_cols = [col for col in train_df.columns if col not in ["price"]]
 
 X_train = train_df[train_df.columns]
-X_val = val_df[train_df.columns]
-X_test = test_df[train_df.columns]
+X_val = val_df[val_df.columns]
+X_test = test_df[test_df.columns]
 
 X_train_array = X_train.to_numpy()
 X_val_array = X_val.to_numpy()

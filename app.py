@@ -24,21 +24,23 @@ def detect_anomaly():
                 )
         model_type, model = random_model()
 
-        data = preprocess_input(data)
+        data_processed = preprocess_input(data)
 
         start_time = time.perf_counter()
-        result = model.predict(data)
+        result = model.predict(data_processed)
         end_time = time.perf_counter()
         latency_ms = (end_time - start_time) * 1000
+
+        prediction_list = result.tolist()
 
         log_ab_test(
             input_data=data,
             model_used=model_type,
-            prediction=result,
+            prediction=prediction_list,
             latency_ms=latency_ms
         )
 
-        return jsonify({"anomaly": result})
+        return jsonify({"anomaly": prediction_list})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400

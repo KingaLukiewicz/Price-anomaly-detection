@@ -117,6 +117,7 @@ class BaseModel(Model):
         self.n_clusters = self.best_params["n_clusters"]
         self.lof_neighbors = self.best_params["lof_neighbors"]
         self.fit(X_train, log_price_train)
+        joblib.dump(self._detector, "models/lof_model.pkl")
         return self
 
 
