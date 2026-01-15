@@ -125,7 +125,7 @@ def prepare_data(
     # Clean data
     df = clean_data(df, numeric_columns)
 
-    # Log-transform price
+    # # Log-transform price
     df["log_price"] = np.log1p(df["price"])
 
     # One-hot encoding categorical data

@@ -11,7 +11,6 @@ ADV_MODEL_PATH = "models/advanced_model.pkl"
 base_model_loaded = joblib.load(BASE_MODEL_PATH)
 adv_model_loaded = joblib.load(ADV_MODEL_PATH)
 scaler = joblib.load("models/scaler.pkl")
-lof_model = joblib.load("models/lof_model.pkl")
 encoded_columns = joblib.load("models/encoded_columns.pkl")
 
 
@@ -35,16 +34,13 @@ def preprocess_input(data: dict) -> pd.DataFrame:
     df_cat = df_cat[encoded_columns]
 
     df_num = df[num_cols].copy()
-    df_num = pd.DataFrame(scaler.transform(df_num), columns=num_cols,
-                          index=df.index)
-    log_price = np.log1p(df["price"])
+    df_num = pd.DataFrame(scaler.transform(df_num), columns=num_cols, index=df.index)
+    df_num["log_price"] = np.log1p(df["price"])
+    df_num["price"] = df["price"]
 
     df_processed = pd.concat([df_cat, df_num], axis=1)
 
-    df_processed = df_processed.reindex(columns=lof_model.feature_names_in_,
-                                        fill_value=0)
-
-    return df_processed, log_price
+    return df_processed
 
 
 def random_model():

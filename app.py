@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from ab_test import log_ab_test, random_model, preprocess_input
 import time
 import pandas as pd
-import numpy as np
 
 app = Flask(__name__)
 
@@ -11,7 +10,6 @@ app = Flask(__name__)
 def detect_anomaly():
     try:
         data = request.get_json()
-        # Validation
         required_fields = [
             "neighbourhood_cleansed", "property_type", "room_type",
             "accommodates", "bathrooms", "bedrooms", "beds", "price"
@@ -24,14 +22,16 @@ def detect_anomaly():
                 )
         model_type, model = random_model()
 
-        data_processed, log_price = preprocess_input(data)
+        df_processed = preprocess_input(data)
+        df_processed = df_processed[model.feature_columns]
+        price_series = pd.Series([float(data["price"])],
+                                 index=df_processed.index)
 
         start_time = time.perf_counter()
-        result = model.predict(data_processed, log_price)
+        result = model.predict(df_processed, price_series)[0]
+        prediction = int(result)
         end_time = time.perf_counter()
         latency_ms = (end_time - start_time) * 1000
-
-        prediction = result[0]
 
         log_ab_test(
             input_data=data,
