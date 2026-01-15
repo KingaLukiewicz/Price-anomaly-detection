@@ -6,20 +6,25 @@ import hdbscan
 from typing import Optional, List
 
 
-def compute_ground_truth(df: pd.DataFrame, cluster_col: str = None
-                         ) -> pd.Series:
+def compute_ground_truth(df: pd.DataFrame, cluster_col: str = None,
+                         sigma_factor: float = 2.0) -> pd.Series:
     df = df.copy()
+    
     if cluster_col is None:
-        high = df['log_price'].quantile(0.95)
-        return ((df['log_price'] > high)).astype(int)
+        mu = df['log_price'].median()
+        sigma = df['log_price'].std()
+        return ((df['log_price'] > mu + sigma_factor * sigma)).astype(int)
+    
     else:
         labels = []
         for _, group in df.groupby(cluster_col):
             if len(group) < 2:
                 labels.extend([0] * len(group))
                 continue
-            high = group['log_price'].quantile(0.95)
-            labels.extend(((group['log_price'] > high)).astype(int))
+            mu = group['log_price'].median()
+            sigma = group['log_price'].std()
+            labels.extend(((group['log_price'] > mu + sigma_factor * sigma)).astype(int))
+        
         return pd.Series(labels, index=df.index)
 
 
@@ -80,8 +85,13 @@ class BaseModel(Model):
                 })
                 y_true = compute_ground_truth(df_val_gt, cluster_col="cluster_labels")
                 metrics = evaluate(y_true, y_pred)
-                if metrics["f1"] > best_score:
-                    best_score = metrics["f1"]
+                if metrics["fpr"] <= 0.05:
+                    score = metrics["recall"]
+                else:
+                    score = metrics["recall"] * 0.5
+
+                if score > best_score:
+                    best_score = score
                     self.best_params = {"n_clusters": k, "threshold": thr}
         self.n_clusters = self.best_params["n_clusters"]
         self.threshold = self.best_params["threshold"]
@@ -91,13 +101,19 @@ class BaseModel(Model):
     def predict(self, X: pd.DataFrame, price: pd.Series) -> np.ndarray:
         labels = self.kmeans.predict(X)
         y_pred = np.zeros(len(X), dtype=int)
+        global_mu = price.median()
 
         for label in np.unique(labels):
             idx = np.where(labels == label)[0]
-            cluster_prices = price.iloc[idx]
-            mu = cluster_prices.median()
-            high = mu * (1 + self.threshold)
-            y_pred[idx] = ((cluster_prices > high)).astype(int)
+            cluster_prices = price.iloc[idx].astype(float)
+
+            if len(cluster_prices) < 3:
+                high = global_mu * (1 + self.threshold)
+            else:
+                mu = cluster_prices.median()
+                high = mu * (1 + self.threshold)
+
+            y_pred[idx] = (cluster_prices > high).astype(int)
 
         return y_pred
 
@@ -138,8 +154,13 @@ class AdvancedModel(Model):
                 y_true = compute_ground_truth(df_val_gt,
                                               cluster_col="cluster_labels")
                 metrics = evaluate(y_true, y_pred)
-                if metrics["f1"] > best_score:
-                    best_score = metrics["f1"]
+                if metrics["fpr"] <= 0.05:
+                    score = metrics["recall"]
+                else:
+                    score = metrics["recall"] * 0.5
+
+                if score > best_score:
+                    best_score = score
                     self.best_params = {"min_cluster_size": size,
                                         "threshold": thr}
         self.min_cluster_size = self.best_params["min_cluster_size"]
@@ -150,12 +171,18 @@ class AdvancedModel(Model):
     def predict(self, X: pd.DataFrame, price: pd.Series) -> np.ndarray:
         cluster_labels_val, _ = hdbscan.approximate_predict(self.clusterer, X)
         y_pred = np.zeros(len(X), dtype=int)
+        global_mu = price.median()
 
         for label in np.unique(cluster_labels_val):
             idx = np.where(cluster_labels_val == label)[0]
-            cluster_prices = price.iloc[idx]
-            mu = cluster_prices.median()
-            high = mu * (1 + self.threshold)
-            y_pred[idx] = ((cluster_prices > high)).astype(int)
+            cluster_prices = price.iloc[idx].astype(float)
+
+            if len(cluster_prices) < 3:
+                high = global_mu * (1 + self.threshold)
+            else:
+                mu = cluster_prices.median()
+                high = mu * (1 + self.threshold)
+            y_pred[idx] = (cluster_prices > high).astype(int)
+            print(cluster_prices, high, y_pred[idx])
 
         return y_pred
