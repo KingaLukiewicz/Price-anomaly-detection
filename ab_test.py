@@ -16,7 +16,6 @@ encoded_columns = joblib.load("models/encoded_columns.pkl")
 
 def preprocess_input(data: dict) -> pd.DataFrame:
     df = pd.DataFrame([data])
-    print(df.dtypes)
 
     cat_cols = ["neighbourhood_cleansed", "property_type", "room_type"]
     num_cols = ["accommodates", "bathrooms", "bedrooms", "beds"]

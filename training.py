@@ -13,6 +13,7 @@ X_train = train_df[feature_cols]
 X_val = val_df[feature_cols]
 X_test = test_df[feature_cols]
 
+y_train_price = train_df["price"]
 y_val_price = val_df["price"]
 y_test_price = test_df["price"]
 
@@ -22,7 +23,7 @@ y_test_log = test_df["log_price"]
 print("Tuning and training BaseModel...")
 base_model = BaseModel()
 base_model.tune(
-    X_train,
+    X_train, y_train_price,
     X_val, y_val_price,
     cluster_values=[3, 5, 7],
     threshold_values=[0.2, 0.25, 0.3, 0.35]
@@ -42,7 +43,7 @@ print("BaseModel metrics:", metrics_base)
 print("Tuning and training AdvancedModel...")
 adv_model = AdvancedModel()
 adv_model.tune(
-    X_train,
+    X_train, y_train_price,
     X_val, y_val_price,
     cluster_sizes=[5, 10, 15],
     threshold_values=[0.2, 0.25, 0.3, 0.35]

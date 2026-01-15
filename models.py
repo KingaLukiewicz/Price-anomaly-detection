@@ -61,22 +61,24 @@ class BaseModel(Model):
         self.threshold = threshold
         self.kmeans: Optional[KMeans] = None
         self.cluster_labels: Optional[np.ndarray] = None
+        self.global_mu: Optional[float] = None
         self.best_params = {}
 
-    def fit(self, X: pd.DataFrame):
+    def fit(self, X: pd.DataFrame,  price: pd.Series):
         self.feature_columns = X.columns.tolist()
+        self.global_mu = price.median()
         self.kmeans = KMeans(n_clusters=self.n_clusters, random_state=42)
         self.cluster_labels = self.kmeans.fit_predict(X)
         return self
 
-    def tune(self, X_train, X_val, price_val,
+    def tune(self, X_train, price_train, X_val, price_val,
              cluster_values=[3, 5, 7], threshold_values=[0.2, 0.3, 0.4]):
         best_score = 0
         for k in cluster_values:
             for thr in threshold_values:
                 self.n_clusters = k
                 self.threshold = thr
-                self.fit(X_train)
+                self.fit(X_train, price_train)
                 y_pred = self.predict(X_val, price_val)
                 cluster_labels_val = self.kmeans.predict(X_val)
                 df_val_gt = pd.DataFrame({
@@ -95,20 +97,19 @@ class BaseModel(Model):
                     self.best_params = {"n_clusters": k, "threshold": thr}
         self.n_clusters = self.best_params["n_clusters"]
         self.threshold = self.best_params["threshold"]
-        self.fit(X_train)
+        self.fit(X_train, price_train)
         return self
 
     def predict(self, X: pd.DataFrame, price: pd.Series) -> np.ndarray:
         labels = self.kmeans.predict(X)
         y_pred = np.zeros(len(X), dtype=int)
-        global_mu = price.median()
 
         for label in np.unique(labels):
             idx = np.where(labels == label)[0]
             cluster_prices = price.iloc[idx].astype(float)
 
             if len(cluster_prices) < 3:
-                high = global_mu * (1 + self.threshold)
+                high = self.global_mu * (1 + self.threshold)
             else:
                 mu = cluster_prices.median()
                 high = mu * (1 + self.threshold)
@@ -128,23 +129,25 @@ class AdvancedModel(Model):
         self.threshold = threshold
         self.clusterer: Optional[hdbscan.HDBSCAN] = None
         self.cluster_labels: Optional[np.ndarray] = None
+        self.global_mu: Optional[float] = None
         self.best_params = {}
 
-    def fit(self, X: pd.DataFrame,):
+    def fit(self, X: pd.DataFrame, price: pd.Series):
         self.feature_columns = X.columns.tolist()
+        self.global_mu = price.median()
         self.clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size,
                                          prediction_data=True)
         self.cluster_labels = self.clusterer.fit_predict(X)
         return self
 
-    def tune(self, X_train, X_val, price_val,
+    def tune(self, X_train, price_train, X_val, price_val,
              cluster_sizes=[5, 10, 15], threshold_values=[0.2, 0.3, 0.4]):
         best_score = 0
         for size in cluster_sizes:
             for thr in threshold_values:
                 self.min_cluster_size = size
                 self.threshold = thr
-                self.fit(X_train)
+                self.fit(X_train, price_train)
                 y_pred = self.predict(X_val, price_val)
                 cluster_labels_val, _ = hdbscan.approximate_predict(self.clusterer, X_val)
                 df_val_gt = pd.DataFrame({
@@ -165,24 +168,22 @@ class AdvancedModel(Model):
                                         "threshold": thr}
         self.min_cluster_size = self.best_params["min_cluster_size"]
         self.threshold = self.best_params["threshold"]
-        self.fit(X_train)
+        self.fit(X_train, price_train)
         return self
 
     def predict(self, X: pd.DataFrame, price: pd.Series) -> np.ndarray:
         cluster_labels_val, _ = hdbscan.approximate_predict(self.clusterer, X)
         y_pred = np.zeros(len(X), dtype=int)
-        global_mu = price.median()
 
         for label in np.unique(cluster_labels_val):
             idx = np.where(cluster_labels_val == label)[0]
             cluster_prices = price.iloc[idx].astype(float)
 
             if len(cluster_prices) < 3:
-                high = global_mu * (1 + self.threshold)
+                high = self.global_mu * (1 + self.threshold)
             else:
                 mu = cluster_prices.median()
                 high = mu * (1 + self.threshold)
-            y_pred[idx] = (cluster_prices > high).astype(int)
-            print(cluster_prices, high, y_pred[idx])
+            y_pred[idx] = (cluster_prices > high).astype(int))
 
         return y_pred
