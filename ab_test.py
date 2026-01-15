@@ -35,24 +35,16 @@ def preprocess_input(data: dict) -> pd.DataFrame:
     df_cat = df_cat[encoded_columns]
 
     df_num = df[num_cols].copy()
-    df_num = pd.DataFrame(scaler.transform(df_num), columns=num_cols, index=df.index)
-    df_num["log_price"] = np.log1p(df["price"])
-    df_num["price"] = df["price"]
+    df_num = pd.DataFrame(scaler.transform(df_num), columns=num_cols,
+                          index=df.index)
+    log_price = np.log1p(df["price"])
 
     df_processed = pd.concat([df_cat, df_num], axis=1)
 
-    if lof_model is not None:
-        lof_cols = list(lof_model.feature_names_in_)
-    
-        # Fill missing columns with zeros (just in case)
-        for col in lof_cols:
-            if col not in df_processed.columns:
-                df_processed[col] = 0
-        
-        # Reorder columns exactly
-        df_processed = df_processed[lof_cols]
+    df_processed = df_processed.reindex(columns=lof_model.feature_names_in_,
+                                        fill_value=0)
 
-    return df_processed
+    return df_processed, log_price
 
 
 def random_model():
