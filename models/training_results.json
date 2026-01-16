@@ -1,0 +1,219 @@
+{
+  "base_model": {
+    "hyperparameters": {
+      "contamination": 0.05,
+      "n_neighbors": 10,
+      "validation_score": 1.0804415926596826
+    },
+    "test_metrics": {
+      "outlier_count": 11,
+      "outlier_rate": 6.0109289617486334,
+      "score_mean": -1.251526698917307,
+      "score_std": 2.2393453718842644,
+      "score_min": -31.224192650911043,
+      "score_max": -0.9415438250474532
+    }
+  },
+  "advanced_model": {
+    "hyperparameters": {
+      "0": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.43268360408904305
+      },
+      "1": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.4013288562770015
+      },
+      "2": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.4075431851758351
+      },
+      "3": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.39869394873175795
+      },
+      "4": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.44710099636129486
+      },
+      "5": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.41209124663602165
+      },
+      "6": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.3945923243389271
+      },
+      "7": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.46224846602594905
+      },
+      "8": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.4803968641551984
+      },
+      "9": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.45634522122389126
+      },
+      "10": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.43680084157912896
+      },
+      "11": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.3949134873274126
+      },
+      "12": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4516049154284578
+      },
+      "13": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4046582070775686
+      },
+      "14": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4366993030361911
+      },
+      "15": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4530208497100991
+      },
+      "16": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.4483122240707535
+      },
+      "17": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4036975705429891
+      },
+      "18": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.41782602343333985
+      },
+      "19": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.4579474544123145
+      },
+      "20": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.46670762460930515
+      },
+      "21": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.44112870275875543
+      },
+      "22": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.44942376941121004
+      },
+      "23": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.42700750333245463
+      },
+      "24": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.4427032284591766
+      },
+      "25": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.472849715997243
+      },
+      "26": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4596347764191437
+      },
+      "27": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.42097447696435214
+      },
+      "28": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4702523814407791
+      },
+      "29": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4370850704232633
+      },
+      "30": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.45876780727215927
+      },
+      "31": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.43279128868941835
+      },
+      "32": {
+        "contamination": 0.05,
+        "n_estimators": 100,
+        "validation_score": 0.43299701676134766
+      },
+      "33": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4543814370185163
+      },
+      "34": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.4339795753132372
+      },
+      "35": {
+        "contamination": 0.05,
+        "n_estimators": 200,
+        "validation_score": 0.4347972769753072
+      },
+      "36": {
+        "contamination": 0.05,
+        "n_estimators": 50,
+        "validation_score": 0.4443843478844081
+      },
+      "-1": {
+        "contamination": 0.05,
+        "n_estimators": 100
+      }
+    },
+    "test_metrics": {
+      "outlier_count": 6,
+      "outlier_rate": 3.278688524590164,
+      "score_mean": -0.39985659152497677,
+      "score_std": 0.062055552518279135,
+      "score_min": -0.5952971828938518,
+      "score_max": -0.30016257894727477
+    },
+    "n_clusters": 37
+  }
+}
