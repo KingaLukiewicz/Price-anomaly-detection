@@ -22,7 +22,9 @@ def preprocess_input(data: dict) -> pd.DataFrame:
 
     df_cat = pd.get_dummies(df[cat_cols], drop_first=True)
 
-    missing_cols = [col for col in encoded_columns if col not in df_cat.columns]
+    missing_cols = [
+        col for col in encoded_columns if col not in df_cat.columns
+    ]
     if missing_cols:
         zeros_df = pd.DataFrame(0, index=df_cat.index, columns=missing_cols)
         df_cat = pd.concat([df_cat, zeros_df], axis=1)
@@ -34,7 +36,11 @@ def preprocess_input(data: dict) -> pd.DataFrame:
     df_cat = df_cat[encoded_columns]
 
     df_num = df[num_cols].copy()
-    df_num = pd.DataFrame(scaler.transform(df_num), columns=num_cols, index=df.index)
+    df_num = pd.DataFrame(
+        scaler.transform(df_num),
+        columns=num_cols,
+        index=df.index
+    )
     df_num["log_price"] = np.log1p(df["price"])
     df_num["price"] = df["price"]
 
