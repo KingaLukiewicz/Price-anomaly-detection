@@ -56,14 +56,12 @@ def log_ab_test(
         input_data,
         model_used,
         prediction,
-        ground_truth=None,
-        latency_ms=None):
+        latency_ms):
     log_entry = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "input_data": input_data,
         "model_used": model_used,
         "prediction": prediction,
-        "ground_truth": ground_truth,
         "latency_ms": latency_ms
     }
     with open("ab_test_logs.json", "a") as f:
