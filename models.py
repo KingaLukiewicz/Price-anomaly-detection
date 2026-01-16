@@ -42,8 +42,6 @@ def evaluate(y_true: pd.Series, y_pred: np.ndarray) -> dict:
 
 
 class Model:
-    _detector = None
-
     def save(self, path: str):
         joblib.dump(self, path)
 
