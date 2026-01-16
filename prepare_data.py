@@ -57,10 +57,18 @@ def split_train_val_test(
     random_state: int = 42
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # create price bins for stratification
-    df["price_bin"] = pd.qcut(df["price"], q=5, labels=False, duplicates="drop")
+    df["price_bin"] = pd.qcut(
+        df["price"],
+        q=5,
+        labels=False,
+        duplicates="drop"
+    )
 
     train_val_df, test_df = train_test_split(
-        df, test_size=test_size, random_state=random_state, stratify=df["price_bin"]
+        df,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=df["price_bin"]
     )
 
     # how much of train_val set is val_size from df
