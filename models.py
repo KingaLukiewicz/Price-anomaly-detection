@@ -18,11 +18,12 @@ def compute_ground_truth(df: pd.DataFrame, cluster_col: str = None,
     else:
         labels = []
         for _, group in df.groupby(cluster_col):
-            if len(group) < 2:
-                labels.extend([0] * len(group))
-                continue
-            mu = group['log_price'].median()
-            sigma = group['log_price'].std()
+            if len(group) < 3:
+                mu = df['log_price'].median()
+                sigma = df['log_price'].std()
+            else:
+                mu = group['log_price'].median()
+                sigma = group['log_price'].std()
             labels.extend(((group['log_price'] > mu + sigma_factor * sigma)).astype(int))
         
         return pd.Series(labels, index=df.index)
