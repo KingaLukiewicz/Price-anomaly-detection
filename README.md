@@ -88,4 +88,5 @@ The collected data can then be analyzed using `evaluate_ab.py`, including latenc
 
 ## Authors
 Kinga Łukiewicz · Aleksandra Raczyńska
+
 Developed as a university project for the Machine Learning Engineering course at Warsaw University of Technology.
